@@ -25,6 +25,22 @@ npm run refresh
 
 Run tests with `npm run test`.
 
+### Sample data for local testing
+
+Pulling live data from GitHub on every local test run is slow and burns API rate limit. Once you have a real, populated database (after a successful `npm run refresh`), snapshot it once:
+
+```bash
+npm run db:snapshot-sample   # writes fixtures/skills.sample.db
+```
+
+From then on, any other clone/checkout can load that snapshot instead of hitting GitHub:
+
+```bash
+npm run db:load-sample       # copies the fixture into $DATABASE_PATH
+```
+
+`fixtures/skills.sample.db` is committed to the repo — re-run `db:snapshot-sample` after a real refresh whenever you want to refresh the sample data itself.
+
 ## Environment variables
 
 | Variable | Required | Purpose |
