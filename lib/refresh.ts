@@ -155,6 +155,10 @@ async function gatherCandidates(state: RunState, client: GithubClient): Promise<
     state.errors.push(`seed/awesome list gathering: ${(err as Error).message}`);
   }
 
+  // Resolving seed/awesome-list names costs one extra API call each, unlike search results
+  // (which already carry full detail). A rate limit hit here shouldn't block processing of the
+  // richer search-derived candidates below — restore stopNow after this phase either way.
+  const stopNowBeforeSeedExpansion = state.stopNow;
   await runBatches(
     extraNames.filter((name) => !candidates.has(name)),
     state,
@@ -163,6 +167,7 @@ async function gatherCandidates(state: RunState, client: GithubClient): Promise<
       if (detail) candidates.set(detail.full_name, detail);
     }
   );
+  state.stopNow = stopNowBeforeSeedExpansion;
 
   return candidates;
 }

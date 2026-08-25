@@ -5,6 +5,7 @@ import { db, sqlite } from "./db/client";
 import { repos } from "./db/schema";
 import { runRefresh, type GithubClient } from "./refresh";
 import * as githubDefault from "./github";
+import { RateLimitError } from "./github";
 import type { GithubRepoDetail } from "./types";
 
 function makeRepo(overrides: Partial<GithubRepoDetail>): GithubRepoDetail {
@@ -91,6 +92,29 @@ describe("runRefresh partial rate-limited gathering", () => {
     const result = await runRefresh(client);
 
     expect(result.status).toBe("partial");
+    expect(result.reposAdded).toBe(2);
+    expect(db.select().from(repos).all()).toHaveLength(2);
+  });
+
+  it("still processes search candidates when the seed/awesome-list expansion phase (not search itself) hits the rate limit", async () => {
+    const client: GithubClient = {
+      ...githubDefault,
+      gatherAllSearchCandidates: async () => ({ repos: [REPO_A, REPO_B], rateLimited: false }),
+      fetchSeedListFullNames: () => ["someone/unrelated-repo"],
+      parseAwesomeListReadmes: async () => [],
+      fetchRepoDetails: async () => {
+        throw new RateLimitError(new Date());
+      },
+      fetchReadme: async () => null,
+      fetchRootContents: async () => [],
+      fetchCodeSearchHasSkillMd: async () => false,
+      checkRepoExists: async () => false,
+    };
+
+    const result = await runRefresh(client);
+
+    // The seed-list lookup failed (rate limited), but the two search-derived candidates
+    // (which needed no extra API call) must still have been processed and added.
     expect(result.reposAdded).toBe(2);
     expect(db.select().from(repos).all()).toHaveLength(2);
   });

@@ -137,6 +137,11 @@ export const SEED_REPOS = ["modelcontextprotocol/servers", "anthropics/skills"];
 const AWESOME_LIST_REPOS = ["punkpeye/awesome-mcp-servers", "wong2/awesome-mcp-servers"];
 const GITHUB_LINK_RE = /github\.com\/([\w.-]+)\/([\w.-]+?)(?=[)\s"'>#]|$)/g;
 
+// ponytail: an awesome-list README can link hundreds of repos, and each one costs a full
+// fetchRepoDetails call to resolve — cap it so this cross-check source can't eat the whole
+// rate-limit budget at the expense of the (already rich, no-extra-call-needed) search results.
+const MAX_AWESOME_LIST_LINKS = 40;
+
 /** Regex-scans awesome-list READMEs for github.com/owner/repo links to widen the candidate pool. */
 export async function parseAwesomeListReadmes(): Promise<string[]> {
   const found = new Set<string>();
@@ -144,6 +149,7 @@ export async function parseAwesomeListReadmes(): Promise<string[]> {
     const readme = await fetchReadme(fullName);
     if (!readme) continue;
     for (const match of readme.matchAll(GITHUB_LINK_RE)) {
+      if (found.size >= MAX_AWESOME_LIST_LINKS) return [...found];
       const owner = match[1];
       const repo = match[2]?.replace(/\.git$/, "");
       if (owner && repo && !["blob", "tree", "issues", "pulls"].includes(repo)) {
