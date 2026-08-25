@@ -100,15 +100,37 @@ export async function searchRepositoriesByKeyword(keyword: string): Promise<Gith
   return results;
 }
 
-export async function gatherAllSearchCandidates(): Promise<GithubRepoDetail[]> {
-  const results: GithubRepoDetail[] = [];
+export interface GatherResult {
+  repos: GithubRepoDetail[];
+  /** True if a rate limit cut the search short — repos still holds whatever was found before that. */
+  rateLimited: boolean;
+}
+
+/**
+ * Searches one topic/keyword at a time so a rate limit mid-way through still returns everything
+ * found so far, rather than discarding it along with the exception.
+ */
+export async function gatherAllSearchCandidates(): Promise<GatherResult> {
+  const repos: GithubRepoDetail[] = [];
+
   for (const topic of TOPICS) {
-    results.push(...(await searchRepositoriesByTopic(topic)));
+    try {
+      repos.push(...(await searchRepositoriesByTopic(topic)));
+    } catch (err) {
+      if (err instanceof RateLimitError) return { repos, rateLimited: true };
+      throw err;
+    }
   }
   for (const keyword of KEYWORDS) {
-    results.push(...(await searchRepositoriesByKeyword(keyword)));
+    try {
+      repos.push(...(await searchRepositoriesByKeyword(keyword)));
+    } catch (err) {
+      if (err instanceof RateLimitError) return { repos, rateLimited: true };
+      throw err;
+    }
   }
-  return results;
+
+  return { repos, rateLimited: false };
 }
 
 export const SEED_REPOS = ["modelcontextprotocol/servers", "anthropics/skills"];

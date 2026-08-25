@@ -25,7 +25,11 @@ interface RunState {
   updated: number;
   removed: number;
   errors: string[];
+  /** Final run status should be "partial" — set whenever any phase couldn't fully complete. */
   partial: boolean;
+  /** We're rate-limited right now — stop starting new batches immediately. Distinct from `partial`:
+   *  a rate limit hit while gathering candidates still leaves earlier-gathered candidates worth processing. */
+  stopNow: boolean;
   processedFullNames: Set<string>;
 }
 
@@ -118,11 +122,12 @@ async function processCandidate(state: RunState, client: GithubClient, detail: G
 
 async function runBatches<T>(items: T[], state: RunState, fn: (item: T) => Promise<void>): Promise<void> {
   for (const batch of chunk(items, BATCH_SIZE)) {
-    if (state.partial) return;
+    if (state.stopNow) return;
     const results = await Promise.allSettled(batch.map(fn));
     for (const result of results) {
       if (result.status === "rejected") {
         if (result.reason instanceof RateLimitError) {
+          state.stopNow = true;
           state.partial = true;
           return;
         }
@@ -136,12 +141,11 @@ async function gatherCandidates(state: RunState, client: GithubClient): Promise<
   const candidates = new Map<string, GithubRepoDetail>();
 
   try {
-    for (const detail of await client.gatherAllSearchCandidates()) {
-      candidates.set(detail.full_name, detail);
-    }
+    const { repos: found, rateLimited } = await client.gatherAllSearchCandidates();
+    for (const detail of found) candidates.set(detail.full_name, detail);
+    if (rateLimited) state.partial = true;
   } catch (err) {
-    if (err instanceof RateLimitError) state.partial = true;
-    else state.errors.push(`search gathering: ${(err as Error).message}`);
+    state.errors.push(`search gathering: ${(err as Error).message}`);
   }
 
   let extraNames: string[] = [];
@@ -251,13 +255,14 @@ export async function runRefresh(client: GithubClient = githubDefault): Promise<
     removed: 0,
     errors: [],
     partial: false,
+    stopNow: false,
     processedFullNames: new Set(),
   };
 
   try {
     const candidates = await gatherCandidates(state, client);
     await runBatches([...candidates.values()], state, (detail) => processCandidate(state, client, detail));
-    if (!state.partial) {
+    if (!state.stopNow) {
       await removalPass(state, client);
     }
     recomputeTrending(state.processedFullNames);

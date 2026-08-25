@@ -30,7 +30,7 @@ function makeRepo(overrides: Partial<GithubRepoDetail>): GithubRepoDetail {
 function fakeClient(candidates: GithubRepoDetail[], existsOverride?: (fullName: string) => Promise<GithubRepoDetail | false>): GithubClient {
   return {
     ...githubDefault,
-    gatherAllSearchCandidates: async () => candidates,
+    gatherAllSearchCandidates: async () => ({ repos: candidates, rateLimited: false }),
     fetchSeedListFullNames: () => [],
     parseAwesomeListReadmes: async () => [],
     fetchRepoDetails: async () => null,
@@ -71,6 +71,28 @@ describe("runRefresh idempotency", () => {
     expect(result.reposAdded).toBe(0);
     expect(result.reposUpdated).toBe(0);
     expect(db.select().from(repos).all()).toHaveLength(3);
+  });
+});
+
+describe("runRefresh partial rate-limited gathering", () => {
+  it("still processes and adds candidates found before the rate limit hit", async () => {
+    const client: GithubClient = {
+      ...githubDefault,
+      gatherAllSearchCandidates: async () => ({ repos: [REPO_A, REPO_B], rateLimited: true }),
+      fetchSeedListFullNames: () => [],
+      parseAwesomeListReadmes: async () => [],
+      fetchRepoDetails: async () => null,
+      fetchReadme: async () => null,
+      fetchRootContents: async () => [],
+      fetchCodeSearchHasSkillMd: async () => false,
+      checkRepoExists: async () => false,
+    };
+
+    const result = await runRefresh(client);
+
+    expect(result.status).toBe("partial");
+    expect(result.reposAdded).toBe(2);
+    expect(db.select().from(repos).all()).toHaveLength(2);
   });
 });
 
