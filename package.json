@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "refresh": "tsx scripts/refresh.ts",
+    "refresh": "node --env-file=.env --import tsx scripts/refresh.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx lib/db/migrate.ts",
     "db:snapshot-sample": "tsx scripts/seed-sample-data.ts",

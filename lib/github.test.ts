@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchRepoDetails, RateLimitError } from "./github";
+import { fetchCodeSearchHasSkillMd, fetchRepoDetails, RateLimitError } from "./github";
 
 describe("github client retry/backoff", () => {
   beforeEach(() => {
@@ -53,5 +53,26 @@ describe("github client retry/backoff", () => {
 
     await expect(fetchRepoDetails("a/b")).rejects.toBeInstanceOf(RateLimitError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetchCodeSearchHasSkillMd degrades to false on a rate limit instead of throwing", async () => {
+    const originalToken = process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = "test-token";
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 403,
+        headers: {
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 60),
+          "x-ratelimit-resource": "code_search",
+        },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchCodeSearchHasSkillMd("a/b")).resolves.toBe(false);
+
+    process.env.GITHUB_TOKEN = originalToken;
   });
 });

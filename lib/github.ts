@@ -187,13 +187,24 @@ export async function fetchRootContents(fullName: string): Promise<string[]> {
   return body.filter((f) => f.type === "file").map((f) => f.name);
 }
 
-/** Code search 401s unauthenticated, so this is only meaningful with GITHUB_TOKEN set. */
+/**
+ * Code search 401s unauthenticated, so this is only meaningful with GITHUB_TOKEN set.
+ * GitHub's code_search bucket is far stricter than core even when authenticated (10/min) — this is
+ * a bonus classification signal, never allowed to fail the candidate it's checking. A rate limit
+ * here degrades to "unknown" (false) rather than rejecting, so core data (stars, readme, etc.) —
+ * fetched in parallel via the same Promise.all in processCandidate — still gets saved.
+ */
 export async function fetchCodeSearchHasSkillMd(fullName: string): Promise<boolean> {
   if (!process.env.GITHUB_TOKEN) return false;
-  const res = await githubFetch(`/search/code?q=filename:SKILL.md+repo:${fullName}`);
-  if (!res.ok) return false;
-  const body = (await res.json()) as { total_count: number };
-  return (body.total_count ?? 0) > 0;
+  try {
+    const res = await githubFetch(`/search/code?q=filename:SKILL.md+repo:${fullName}`);
+    if (!res.ok) return false;
+    const body = (await res.json()) as { total_count: number };
+    return (body.total_count ?? 0) > 0;
+  } catch (err) {
+    if (err instanceof RateLimitError) return false;
+    throw err;
+  }
 }
 
 /** Returns the repo detail if it still exists, or false on 404/410. Throws on inconclusive errors. */
