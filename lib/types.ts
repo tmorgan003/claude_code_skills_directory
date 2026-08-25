@@ -31,7 +31,7 @@ export interface QueryParams {
   category?: string;
   language?: string;
   license?: string;
-  sort?: "stars" | "updated" | "added" | "trending7d" | "trending30d";
+  sort?: "stars" | "updated" | "added" | "trending1d" | "trending7d" | "trending30d";
   page?: number;
   perPage?: number;
   includeHidden?: boolean;

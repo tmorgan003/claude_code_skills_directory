@@ -10,6 +10,7 @@ const SORTERS = {
   stars: desc(repos.stars),
   updated: desc(repos.lastCommitAt),
   added: desc(repos.firstSeenRunId),
+  trending1d: desc(repos.trending1d),
   trending7d: desc(repos.trending7d),
   trending30d: desc(repos.trending30d),
 } as const;
@@ -102,15 +103,4 @@ export function getFilterFacets(): { languages: string[]; licenses: string[] } {
     languages: langs.map((l) => l.v!).sort(),
     licenses: licenses.map((l) => l.v!).sort(),
   };
-}
-
-/** Ids of the last 8 refresh runs — a repo is "new" if firstSeenRunId is one of these. */
-export function getRecentRunIds(): Set<number> {
-  const recentRuns = db
-    .select({ id: refreshRuns.id })
-    .from(refreshRuns)
-    .orderBy(desc(refreshRuns.id))
-    .limit(8)
-    .all();
-  return new Set(recentRuns.map((r) => r.id));
 }

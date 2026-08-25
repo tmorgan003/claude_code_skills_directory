@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { GitFork, Star } from "lucide-react";
 import type { Repo } from "@/lib/db/schema";
-import { CategoryBadge, NewBadge, TrendingBadge, TypeBadge } from "./Badge";
+import { CategoryBadge, NewBadge, TrendingBadge, TypeBadge, isNewOnGithub } from "./Badge";
 import { BookmarkButton } from "./BookmarkButton";
 
-export function RepoRow({ repo, isNew }: { repo: Repo; isNew: boolean }) {
+export function RepoRow({ repo }: { repo: Repo }) {
   return (
     <Link
       href={`/repo/${repo.owner}/${repo.name}`}
@@ -15,7 +15,7 @@ export function RepoRow({ repo, isNew }: { repo: Repo; isNew: boolean }) {
           <span className="truncate font-bold text-slate-900 group-hover:text-accent dark:text-white">
             {repo.owner}/{repo.name}
           </span>
-          {isNew && <NewBadge />}
+          {isNewOnGithub(repo.createdAt) && <NewBadge />}
         </div>
         <p className="truncate text-sm text-gray-600 dark:text-gray-300">{repo.purposeSummary}</p>
       </div>

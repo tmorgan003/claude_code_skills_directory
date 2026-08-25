@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { eq } from "drizzle-orm";
 import { db, sqlite } from "./db/client";
-import { repos } from "./db/schema";
+import { repos, starHistory } from "./db/schema";
 import { runRefresh, type GithubClient } from "./refresh";
 import * as githubDefault from "./github";
 import { RateLimitError } from "./github";
@@ -117,6 +117,46 @@ describe("runRefresh partial rate-limited gathering", () => {
     // (which needed no extra API call) must still have been processed and added.
     expect(result.reposAdded).toBe(2);
     expect(db.select().from(repos).all()).toHaveLength(2);
+  });
+});
+
+describe("runRefresh trending computation", () => {
+  it("uses the nearest snapshot at or before each window's cutoff independently", async () => {
+    await runRefresh(fakeClient([REPO_A]));
+    const repoA = db.select().from(repos).where(eq(repos.fullName, "owner/a")).get()!;
+
+    // A snapshot 10 days old is old enough to be the baseline for the 1d and 7d windows, but not
+    // old enough for the 30d window (which needs something >=30 days old) — so 30d should be 0
+    // while 1d/7d both pick it up as their nearest available baseline.
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    sqlite.exec(`DELETE FROM star_history WHERE repo_id = ${repoA.id}`);
+    db.insert(starHistory).values({ repoId: repoA.id, runId: repoA.firstSeenRunId!, stars: 5, recordedAt: tenDaysAgo }).run();
+
+    const grown = makeRepo({ id: 1, full_name: "owner/a", name: "a", stargazers_count: 50 });
+    await runRefresh(fakeClient([grown]));
+
+    const updated = db.select().from(repos).where(eq(repos.fullName, "owner/a")).get()!;
+    expect(updated.trending1d).toBe(45); // 50 - 5, the 10-day-old snapshot is the nearest baseline available
+    expect(updated.trending7d).toBe(45);
+    expect(updated.trending30d).toBe(0); // no snapshot >=30 days old exists yet
+  });
+});
+
+describe("runRefresh removal pass star history", () => {
+  it("records a star_history snapshot when a repo is confirmed to still exist", async () => {
+    await runRefresh(fakeClient([REPO_A, REPO_B]));
+    const repoB = db.select().from(repos).where(eq(repos.fullName, "owner/b")).get()!;
+    const historyBefore = db.select().from(starHistory).where(eq(starHistory.repoId, repoB.id)).all();
+    expect(historyBefore.length).toBeGreaterThan(0);
+
+    // Run 2: repo B is missing from candidates but checkRepoExists confirms it's still there
+    // with more stars — this goes through the removal pass's "still exists" branch.
+    const grownB = makeRepo({ id: 2, full_name: "owner/b", name: "b", stargazers_count: 999 });
+    await runRefresh(fakeClient([REPO_A], async (fullName) => (fullName === "owner/b" ? grownB : false)));
+
+    const historyAfter = db.select().from(starHistory).where(eq(starHistory.repoId, repoB.id)).all();
+    expect(historyAfter.length).toBe(historyBefore.length + 1);
+    expect(historyAfter.some((h) => h.stars === 999)).toBe(true);
   });
 });
 

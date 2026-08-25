@@ -39,6 +39,7 @@ export const repos = sqliteTable("repos", {
   lastCommitAt: text("last_commit_at"),
   fetchedAt: text("fetched_at").notNull(),
   firstSeenRunId: integer("first_seen_run_id").references(() => refreshRuns.id),
+  trending1d: integer("trending_1d").notNull().default(0),
   trending7d: integer("trending_7d").notNull().default(0),
   trending30d: integer("trending_30d").notNull().default(0),
   hidden: integer("hidden", { mode: "boolean" }).notNull().default(false),

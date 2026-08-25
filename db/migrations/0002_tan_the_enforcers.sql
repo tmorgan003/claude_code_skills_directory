@@ -1,0 +1,1 @@
+ALTER TABLE `repos` ADD `trending_1d` integer DEFAULT 0 NOT NULL;

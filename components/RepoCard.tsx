@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ExternalLink, GitFork, Star } from "lucide-react";
 import type { Repo } from "@/lib/db/schema";
-import { CategoryBadge, NewBadge, TrendingBadge, TypeBadge } from "./Badge";
+import { CategoryBadge, NewBadge, TrendingBadge, TypeBadge, isNewOnGithub } from "./Badge";
 import { BookmarkButton } from "./BookmarkButton";
 
-export function RepoCard({ repo, isNew }: { repo: Repo; isNew: boolean }) {
+export function RepoCard({ repo }: { repo: Repo }) {
   return (
     <Link
       href={`/repo/${repo.owner}/${repo.name}`}
@@ -23,7 +23,7 @@ export function RepoCard({ repo, isNew }: { repo: Repo; isNew: boolean }) {
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <TypeBadge type={repo.type} />
         <CategoryBadge category={repo.category} />
-        {isNew && <NewBadge />}
+        {isNewOnGithub(repo.createdAt) && <NewBadge />}
         <TrendingBadge growth={repo.trending7d} />
       </div>
 

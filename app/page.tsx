@@ -4,7 +4,7 @@ import { FilterBar } from "@/components/FilterBar";
 import { RepoCollection } from "@/components/RepoCollection";
 import { StateMessage } from "@/components/StateMessage";
 import { UpAndComing } from "@/components/UpAndComing";
-import { getFilterFacets, getRecentRunIds, queryRepos } from "@/lib/query";
+import { getFilterFacets, queryRepos } from "@/lib/query";
 import type { QueryParams } from "@/lib/types";
 
 export default function DirectoryPage({
@@ -27,7 +27,6 @@ export default function DirectoryPage({
 
   const { repos, total } = queryRepos(params);
   const { languages, licenses } = getFilterFacets();
-  const recentRunIds = getRecentRunIds();
 
   const upAndComing = isDefaultView ? queryRepos({ sort: "trending7d", perPage: 8 }).repos : [];
 
@@ -35,9 +34,7 @@ export default function DirectoryPage({
     <div>
       <FilterBar languages={languages} licenses={licenses} />
 
-      {isDefaultView && upAndComing.length > 0 && (
-        <UpAndComing repos={upAndComing} recentRunIds={recentRunIds} />
-      )}
+      {isDefaultView && upAndComing.length > 0 && <UpAndComing repos={upAndComing} />}
 
       {total === 0 ? (
         <StateMessage
@@ -48,7 +45,7 @@ export default function DirectoryPage({
       ) : (
         <>
           <p className="mb-3 text-sm text-gray-500">{total.toLocaleString()} results</p>
-          <RepoCollection repos={repos} view={view} recentRunIds={recentRunIds} />
+          <RepoCollection repos={repos} view={view} />
         </>
       )}
     </div>

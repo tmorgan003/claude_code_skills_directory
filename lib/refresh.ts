@@ -199,6 +199,7 @@ async function removalPass(state: RunState, client: GithubClient) {
         .where(eq(repos.id, repo.id))
         .run();
       state.updated++;
+      recordStarHistory(state.runId, repo.id, exists.stargazers_count);
     } else {
       const missCount = repo.removedMissCount + 1;
       if (missCount >= REMOVAL_CONFIRM_MISSES) {
@@ -214,37 +215,39 @@ async function removalPass(state: RunState, client: GithubClient) {
   });
 }
 
+const TRENDING_WINDOWS = {
+  trending1d: 1,
+  trending7d: 7,
+  trending30d: 30,
+} as const;
+
+/** Latest star_history snapshot at or before the cutoff, or null if there isn't one yet (not enough history). */
+function starsAsOf(repoId: number, cutoffIso: string): number | null {
+  const row = db
+    .select({ stars: starHistory.stars })
+    .from(starHistory)
+    .where(and(eq(starHistory.repoId, repoId), sql`${starHistory.recordedAt} <= ${cutoffIso}`))
+    .orderBy(sql`${starHistory.recordedAt} DESC`)
+    .limit(1)
+    .get();
+  return row?.stars ?? null;
+}
+
 function recomputeTrending(fullNames: Set<string>) {
   const now = Date.now();
-  const cutoff7d = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const cutoff30d = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   for (const fullName of fullNames) {
     const repo = db.select().from(repos).where(eq(repos.fullName, fullName)).get();
     if (!repo) continue;
 
-    const past7 = db
-      .select({ stars: starHistory.stars })
-      .from(starHistory)
-      .where(and(eq(starHistory.repoId, repo.id), sql`${starHistory.recordedAt} <= ${cutoff7d}`))
-      .orderBy(sql`${starHistory.recordedAt} DESC`)
-      .limit(1)
-      .get();
-    const past30 = db
-      .select({ stars: starHistory.stars })
-      .from(starHistory)
-      .where(and(eq(starHistory.repoId, repo.id), sql`${starHistory.recordedAt} <= ${cutoff30d}`))
-      .orderBy(sql`${starHistory.recordedAt} DESC`)
-      .limit(1)
-      .get();
+    const update: Partial<Record<keyof typeof TRENDING_WINDOWS, number>> = {};
+    for (const [column, days] of Object.entries(TRENDING_WINDOWS) as [keyof typeof TRENDING_WINDOWS, number][]) {
+      const cutoff = new Date(now - days * 24 * 60 * 60 * 1000).toISOString();
+      const past = starsAsOf(repo.id, cutoff);
+      update[column] = past !== null ? repo.stars - past : 0;
+    }
 
-    db.update(repos)
-      .set({
-        trending7d: past7 ? repo.stars - past7.stars : 0,
-        trending30d: past30 ? repo.stars - past30.stars : 0,
-      })
-      .where(eq(repos.id, repo.id))
-      .run();
+    db.update(repos).set(update).where(eq(repos.id, repo.id)).run();
   }
 }
 

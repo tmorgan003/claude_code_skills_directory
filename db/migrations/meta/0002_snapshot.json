@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c7c28326-e269-41e0-8d22-713385311c0c",
-  "prevId": "50ca099a-60be-4696-9468-208331390272",
+  "id": "3c630cd5-7439-492d-ba03-466532931778",
+  "prevId": "c7c28326-e269-41e0-8d22-713385311c0c",
   "tables": {
     "refresh_runs": {
       "name": "refresh_runs",
@@ -249,6 +249,14 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "trending_1d": {
+          "name": "trending_1d",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "trending_7d": {
           "name": "trending_7d",

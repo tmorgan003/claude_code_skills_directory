@@ -52,6 +52,13 @@ export function TrendingBadge({ growth }: { growth: number }) {
   );
 }
 
+const NEW_ON_GITHUB_DAYS = 30;
+
+/** True if the repo itself was created on GitHub recently — not just recently added to this directory. */
+export function isNewOnGithub(createdAt: string): boolean {
+  return Date.now() - new Date(createdAt).getTime() < NEW_ON_GITHUB_DAYS * 86_400_000;
+}
+
 export function NewBadge() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white">

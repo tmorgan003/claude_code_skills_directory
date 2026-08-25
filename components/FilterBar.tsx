@@ -10,8 +10,9 @@ const SORT_OPTIONS = [
   { value: "stars", label: "Most stars" },
   { value: "updated", label: "Recently updated" },
   { value: "added", label: "Recently added" },
-  { value: "trending7d", label: "Trending (7d)" },
-  { value: "trending30d", label: "Trending (30d)" },
+  { value: "trending1d", label: "Star gains (day)" },
+  { value: "trending7d", label: "Star gains (week)" },
+  { value: "trending30d", label: "Star gains (month)" },
 ];
 
 export function FilterBar({ languages, licenses }: { languages: string[]; licenses: string[] }) {

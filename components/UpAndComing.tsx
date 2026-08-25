@@ -2,7 +2,7 @@ import { TrendingUp } from "lucide-react";
 import type { Repo } from "@/lib/db/schema";
 import { RepoCard } from "./RepoCard";
 
-export function UpAndComing({ repos, recentRunIds }: { repos: Repo[]; recentRunIds: Set<number> }) {
+export function UpAndComing({ repos }: { repos: Repo[] }) {
   const trending = repos.filter((r) => r.trending7d > 0);
   if (trending.length === 0) return null;
 
@@ -15,10 +15,7 @@ export function UpAndComing({ repos, recentRunIds }: { repos: Repo[]; recentRunI
       <div className="flex gap-4 overflow-x-auto pb-2">
         {trending.map((repo) => (
           <div key={repo.id} className="w-72 shrink-0">
-            <RepoCard
-              repo={repo}
-              isNew={repo.firstSeenRunId !== null && recentRunIds.has(repo.firstSeenRunId)}
-            />
+            <RepoCard repo={repo} />
           </div>
         ))}
       </div>
