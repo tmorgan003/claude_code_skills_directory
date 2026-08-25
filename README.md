@@ -66,12 +66,12 @@ The refresh pipeline (`scripts/refresh.ts`) is a standalone script, independent 
 
 ### Option A — GitHub Actions (recommended, free)
 
-`.github/workflows/refresh.yml` runs every 8 hours (`cron: '0 */8 * * *'`) and POSTs to your deployed instance's `/api/refresh` route. In your GitHub repo settings, add these Actions secrets:
+`.github/workflows/refresh.yml` POSTs to your deployed instance's `/api/refresh` route. In your GitHub repo settings, add these Actions secrets:
 
-- `REFRESH_URL` — your deployed app's base URL (e.g. `https://skills.example.com`)
+- `REFRESH_URL` — your deployed app's base URL (e.g. `https://skills.example.com`) — must be publicly reachable, not `localhost`
 - `ADMIN_TOKEN` — same value as your app's `ADMIN_TOKEN` env var
 
-You can also trigger it manually from the Actions tab (`workflow_dispatch`).
+**The scheduled trigger (`cron: '0 */8 * * *'`) is currently commented out** in the workflow file — it was failing every run (and emailing on each failure) because no public deployment existed yet for it to reach. Once you've deployed and set both secrets above, uncomment the `schedule:` block in `.github/workflows/refresh.yml` to turn it back on. Until then, you can still trigger it manually from the Actions tab (`workflow_dispatch`) once the secrets are set.
 
 ### Option B — cron-job.org (fallback, no GitHub Actions needed)
 

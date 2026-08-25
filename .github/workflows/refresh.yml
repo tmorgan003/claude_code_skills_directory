@@ -1,8 +1,13 @@
 name: Refresh directory
 
 on:
-  schedule:
-    - cron: "0 */8 * * *"
+  # Scheduled trigger is paused until this app has a public deployment (REFRESH_URL secret) —
+  # GitHub's cloud runner can't reach a localhost dev instance, so the schedule just fails and
+  # emails on every run. Re-add the `schedule:` block below once REFRESH_URL and ADMIN_TOKEN
+  # repo secrets are set to a reachable deployment.
+  #
+  # schedule:
+  #   - cron: "0 */8 * * *"
   workflow_dispatch: {}
 
 jobs:
