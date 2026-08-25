@@ -1,6 +1,6 @@
 # Claude Code Skills Directory
 
-Finds, classifies, and displays the most popular Claude Code skills and MCP servers on GitHub, refreshed automatically every 8 hours. Full-text search, filters, trending/"Up and Coming", bookmarks, and an admin review queue.
+Finds, classifies, and displays the most popular Claude Code skills and MCP servers on GitHub, refreshed on a schedule once deployed (see [Keeping data fresh](#keeping-data-fresh)). Full-text search, filters, trending/"Up and Coming", bookmarks, and an admin review queue.
 
 Community-sourced. Not an official Anthropic product.
 
@@ -82,6 +82,18 @@ Create a free job at [cron-job.org](https://cron-job.org) that runs every 8 hour
 - Header: `Authorization: Bearer <your ADMIN_TOKEN>`
 
 Same endpoint either way — pick whichever trigger source is more convenient.
+
+## Rate limits
+
+GitHub enforces three *separate* limits relevant to the refresh pipeline, all independent of each other:
+
+| Bucket | Unauthenticated | With `GITHUB_TOKEN` | Used by |
+|---|---|---|---|
+| Core REST API | 60/hour | 5,000/hour | repo details, README, root contents |
+| Search API | 10/minute | 30/minute | topic/keyword search, awesome-list link discovery |
+| Code search API | disabled (401) | 10/minute | subfolder `SKILL.md` detection |
+
+A run that hits any of these mid-way stops that phase gracefully (`refresh_runs.status` becomes `partial`, nothing crashes, nothing already saved is lost) rather than failing outright — see `lib/refresh.ts`/`lib/github.ts` for exactly how each phase degrades. The code search bucket in particular is easy to exhaust even with a token (10/minute is tight), which is why `fetchCodeSearchHasSkillMd` degrades to `false` on a rate limit instead of failing the repo it's checking — losing that one classification signal is far cheaper than losing the whole candidate.
 
 ## Admin review queue
 
