@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-neutral-100 text-slate-900 dark:bg-neutral-950 dark:text-neutral-100;
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+a,
+button {
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+:focus-visible {
+  outline-offset: 2px;
+}
+
+.readme-content h1,
+.readme-content h2,
+.readme-content h3 {
+  @apply mt-4 mb-2 font-bold first:mt-0;
+}
+.readme-content p {
+  @apply mb-3 text-sm leading-relaxed;
+}
+.readme-content ul,
+.readme-content ol {
+  @apply mb-3 ml-5 list-disc text-sm;
+}
+.readme-content code {
+  @apply rounded bg-black/5 px-1 py-0.5 text-[0.85em] dark:bg-white/10;
+}
+.readme-content pre {
+  @apply mb-3 overflow-x-auto rounded-lg bg-slate-900 p-3 text-slate-100;
+}
+.readme-content pre code {
+  @apply bg-transparent p-0;
+}
+.readme-content a {
+  @apply text-accent underline;
+}
+.readme-content img {
+  @apply max-w-full;
+}

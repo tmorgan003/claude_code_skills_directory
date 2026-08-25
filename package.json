@@ -1,0 +1,39 @@
+{
+  "name": "claude-code-skills-directory",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Finds, classifies, and displays the most popular Claude Code skills and MCP servers on GitHub, refreshed on a schedule.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "refresh": "tsx scripts/refresh.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx lib/db/migrate.ts"
+  },
+  "dependencies": {
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.33.0",
+    "lucide-react": "^0.436.0",
+    "marked": "^13.0.3",
+    "sanitize-html": "^2.13.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "tailwindcss": "^3.4.10",
+    "postcss": "^8.4.41",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.24.2",
+    "tsx": "^4.19.0",
+    "vitest": "^2.0.5",
+    "@types/node": "^22.5.0",
+    "@types/react": "^18.3.4",
+    "@types/react-dom": "^18.3.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/sanitize-html": "^2.13.0"
+  }
+}

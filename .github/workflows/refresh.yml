@@ -1,0 +1,16 @@
+name: Refresh directory
+
+on:
+  schedule:
+    - cron: "0 */8 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger refresh
+        run: |
+          curl -sf -X POST "${{ secrets.REFRESH_URL }}/api/refresh" \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+            --max-time 300
