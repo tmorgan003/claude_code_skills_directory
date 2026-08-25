@@ -64,14 +64,19 @@ export function queryRepos(params: QueryParams): QueryResult {
   return { repos: rows, total, page, perPage };
 }
 
+/** Returns undefined (rather than throwing) if the DB hasn't been migrated yet — e.g. mid-deploy. */
 export function getLatestSuccessfulRun() {
-  return db
-    .select()
-    .from(refreshRuns)
-    .where(eq(refreshRuns.status, "success"))
-    .orderBy(desc(refreshRuns.finishedAt))
-    .limit(1)
-    .get();
+  try {
+    return db
+      .select()
+      .from(refreshRuns)
+      .where(eq(refreshRuns.status, "success"))
+      .orderBy(desc(refreshRuns.finishedAt))
+      .limit(1)
+      .get();
+  } catch {
+    return undefined;
+  }
 }
 
 export function getRepoByOwnerName(owner: string, name: string) {
