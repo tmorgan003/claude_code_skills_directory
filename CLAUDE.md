@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test` — Vitest (all suites live under `lib/**/*.test.ts`); a single file: `npx vitest run lib/classify.test.ts`
 - `npm run db:generate` — regenerate Drizzle migrations from `lib/db/schema.ts` (the hand-written FTS5 migration, `db/migrations/0001_fts5.sql`, is NOT schema-derived — see below)
 - `npm run db:migrate` — apply migrations to `$DATABASE_PATH` (defaults to `./data/skills.db`)
-- `npm run refresh` — run the GitHub refresh pipeline once (`scripts/refresh.ts`)
+- `npm run refresh` — run the GitHub refresh pipeline once (`scripts/refresh.ts`). Runs as `node --env-file=.env --import tsx scripts/refresh.ts`, not plain `tsx` — a bare `tsx scripts/refresh.ts` does NOT load `.env` (only Next's dev/build process does that automatically), so `GITHUB_TOKEN` would silently be ignored otherwise. Keep this pattern if you touch the script.
+- `npm run db:snapshot-sample` / `npm run db:load-sample` — snapshot the current DB to `fixtures/skills.sample.db` (via `VACUUM INTO`, safe even while the dev server has the DB open) or load that fixture into `$DATABASE_PATH`, so local dev/testing doesn't have to hit GitHub every time.
 
 Tests run against an in-memory SQLite DB (`DATABASE_PATH=:memory:`, set in `vitest.config.ts`), isolated per test file.
 
@@ -25,13 +26,27 @@ Tests run against an in-memory SQLite DB (`DATABASE_PATH=:memory:`, set in `vite
 
 **README storage**: `repos.readmeExcerpt` stores raw (bounded, ~4000 char) markdown, not stripped text — it's rendered + sanitized at read time via `lib/sanitize.ts` (`marked` + `sanitize-html`) on the detail page. `purposeSummary`, by contrast, IS derived via `lib/extract.ts::stripMarkdown` + paragraph extraction, since it's a plain-text summary rendered as normal JSX text (React escapes it automatically — no sanitize-html needed there).
 
-**Trending / "New"**: `star_history` records one snapshot per repo per refresh run; `trending7d`/`trending30d` are recomputed each run by diffing current stars against the nearest snapshot older than the cutoff. "New" isn't a stored flag — a repo is new if `firstSeenRunId` is among the last 8 `refresh_runs` rows (`lib/query.ts::getRecentRunIds()`), so the window tracks actual runs, not wall-clock time.
+**Trending**: `star_history` records one snapshot per repo on every refresh-pipeline write path that changes its star count — both the normal upsert in `upsertRepo()` and the removal pass's "still exists" branch in `removalPass()` (easy to miss the latter; it was a real bug once, see git history). `trending1d`/`trending7d`/`trending30d` are recomputed each run (`recomputeTrending()`) by diffing current stars against the nearest snapshot *at or before* each cutoff — not an exact "N days ago" snapshot, whatever's available. A field reads `0` until a snapshot old enough for that window exists (e.g. `trending1d` is `0` for every repo until at least a day separates two refreshes). Exposed as three sort options in `FilterBar.tsx` ("Star gains (day/week/month)").
+
+**"New"**: purely `repos.createdAt` (GitHub's actual repo creation date) — `isNewOnGithub()` in `components/Badge.tsx`, currently a 30-day window. Do NOT reintroduce a "recently added to our directory" notion here (there was one, based on `firstSeenRunId` vs. the last 8 `refresh_runs`, removed because a years-old repo newly discovered by the pipeline would incorrectly show as new — the badge must reflect the repo's age on GitHub, not our discovery date).
 
 **Auth**: one shared `ADMIN_TOKEN` (see `lib/auth.ts::isAuthorized`) gates `POST /api/refresh`, `PATCH /api/admin/repos/[id]`, and `GET /api/repos?includeHidden=1`. No user accounts.
 
 **Frontend**: filter/search/sort/view state lives entirely in the URL (`FilterBar.tsx`), read directly by the Server Component `app/page.tsx` — there's no client store. `app/page.tsx`, `app/repo/[owner]/[name]/page.tsx`, and `app/admin/page.tsx` are all `force-dynamic` (they read live DB state per-request; do not remove that export or Next will try to statically prerender them at build time, before any data exists).
 
-**Deployment constraint**: `better-sqlite3` needs a persistent writable filesystem. This app is meant to be self-hosted (Docker/VPS) — it will not work correctly on serverless platforms with ephemeral filesystems (Vercel/Netlify functions).
+**Deployment constraint**: `better-sqlite3` needs a persistent writable filesystem. This app is meant to be self-hosted (Docker/VPS) — it will not work correctly on serverless platforms with ephemeral filesystems (Vercel/Netlify functions). The Docker image is `node:22-slim` (not `-alpine`) with `python3 make g++` installed in the deps stage — `better-sqlite3` needs a native-compile fallback if no prebuilt binary matches the platform, and `sanitize-html` requires Node >=22 regardless.
+
+**GitHub rate limits are three separate buckets** — easy to conflate when debugging a run that added 0 repos despite "plenty" of budget remaining:
+
+| Bucket | Unauth | With `GITHUB_TOKEN` | Used by |
+|---|---|---|---|
+| Core REST | 60/hr | 5,000/hr | repo details, README, root contents |
+| Search | 10/min | 30/min | topic/keyword search, awesome-list link discovery |
+| Code search | 401 | 10/min | subfolder `SKILL.md` detection |
+
+Code search is by far the easiest to exhaust, which is exactly why `fetchCodeSearchHasSkillMd()` degrades to `false` on a `RateLimitError` instead of throwing — it's one of three parallel calls in `processCandidate()`'s `Promise.all`, so letting it throw used to fail *every* candidate once the 10/min bucket ran dry, discarding readme/contents calls that had already succeeded. If you touch `processCandidate()`, preserve that asymmetry: a failure in the bonus classification signal must never block the core fields from saving. Also watch `gatherCandidates()`'s seed/awesome-list expansion phase — it shares `RunState` with the main candidate loop, so a rate limit there must not leak into `state.stopNow` and block processing of the (already-fetched, no-extra-call-needed) search results; it's saved/restored around that phase for exactly this reason.
+
+**GitHub Actions schedule is currently paused** — `.github/workflows/refresh.yml` has its `schedule:` trigger commented out because no public deployment exists yet for the cron job to reach (it was failing, and emailing, on every run). Re-enable once `REFRESH_URL`/`ADMIN_TOKEN` repo secrets point at a real deployment.
 
 ## Known limitation
 
